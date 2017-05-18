@@ -1,3 +1,5 @@
 # PublicBookmarklets
 
-To install a Bookmarklet, just drag-and-drop its to your Bookmark bar. You will find the Bookmarklets links in the [Bookmarklet Index](https://rawgit.com/FuglyLionKing/PublicBookmarklets/master/BookmarkletIndex.html)
+## Instalation
+
+Pour installer un Bookmarket, glissé-déposer son lien dans votre barre des favories. Les liens sont disponibles dans [la liste des Bookmarklets](https://rawgit.com/FuglyLionKing/PublicBookmarklets/master/BookmarkletIndex.html)
