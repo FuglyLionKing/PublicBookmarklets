@@ -88,11 +88,48 @@
         }
     }
 
+    class PlaceController {
+        static getCurrentPlace() {
+            let [, placeName, strParams] = (/#(\w+):((&?\w+=\w+)*)/gi).exec(window.location.hash);
+            let params = [];
+            let paramsRegExp = /(\w+)=(\w+)/gi;
+            for (let p; p = paramsRegExp.exec(strParams);) {
+                params.push(new Parameter(p[1], p[2]));
+            }
+
+            return new Place(placeName, ...params);
+        }
+
+        static goTo(place) {
+            jsApi.PlaceControllerApi.goTo(place.name, place.parameters);
+        }
+    }
+
+
     const Parameter = jsApi.PlaceControllerApi.Parameter;
     const controlsAndShortcuts = makeControlsAndShortcuts();
     const mainPanel = injectAndGetMainPanel();
     injectCss();
     ensureToolBarAlwaysUsable();
+
+    function makeButton(text, title) {
+        let reload = document.createElement('div');
+        reload.title = title;
+        reload.innerText = text;
+        return reload;
+    }
+
+    function makeLightReloadButton() {
+        let reload = makeButton('reload', 'Makes a place change to an empty place then goes back to the current place and arguments');
+        reload.classList.add("control");
+        reload.addEventListener('click', () => {
+            let currentPlace = PlaceController.getCurrentPlace();
+            setTimeout(() => PlaceController.goTo(currentPlace), 500);
+            PlaceController.goTo(new Place('laboSophie'));
+        });
+
+        return reload;
+    }
 
     function injectAndGetMainPanel() {
         let panel = document.createElement('div');
@@ -123,7 +160,7 @@
                 PlaceStorage.clearPlaceStorage();
                 return;
             }
-            let currentPlace = getCurrentPlace();
+            let currentPlace = PlaceController.getCurrentPlace();
             controlsAndShortcuts.appendChild(makeGoToButton(currentPlace));
             PlaceStorage.storePlace(currentPlace);
         });
@@ -138,7 +175,7 @@
             if (e.ctrlKey && e.shiftKey) {
                 b.remove();
             } else {
-                goTo(place);
+                PlaceController.goTo(place);
             }
 
         });
@@ -170,40 +207,6 @@
         return elem;
     }
 
-    function makeButton(text, title) {
-        let reload = document.createElement('div');
-        reload.title = title;
-        reload.innerText = text;
-        return reload;
-    }
-
-    function makeLightReloadButton() {
-        let reload = makeButton('reload', 'Makes a place change to an empty place then goes back to the current place and arguments');
-        reload.classList.add("control");
-        reload.addEventListener('click', () => {
-            let currentPlace = getCurrentPlace();
-            setTimeout(() => goTo(currentPlace), 500);
-            goTo(new Place('laboSophie'));
-        });
-
-        return reload;
-    }
-
-    function getCurrentPlace() {
-        let [, placeName, strParams] = (/#(\w+):((&?\w+=\w+)*)/gi).exec(window.location.hash);
-        let params = [];
-        let paramsRegExp = /(\w+)=(\w+)/gi;
-        for (let p; p = paramsRegExp.exec(strParams);) {
-            params.push(new Parameter(p[1], p[2]));
-        }
-
-        return new Place(placeName, ...params);
-    }
-
-    function goTo(place) {
-        jsApi.PlaceControllerApi.goTo(place.name, place.parameters);
-    }
-
     function ensureToolBarAlwaysUsable() {
         new MutationObserver((mutations) => {
             function isNodeADialog(node) {
@@ -222,6 +225,19 @@
             });
         }).observe(document.body, {childList: true});
     }
+
+    // jsApi.NativeSqlApi.execute('SELECT PID_ID, PID_FIRSTNAME, PID_BIRTHNAME  FROM AXI_ID_MOVEMENT.T_PATIENTS_IDENTITIES_PID WHERE PID_ID < 1000'
+    //     , function(results, error){
+    //         if(null != error){
+    //             console.log(error);
+    //             return;
+    //         }
+    //
+    //         for(var i = 0; i < results.length; ++i){
+    //             var result = results[i];
+    //             console.log('id : '+ result.col1 +', name : '+ result.col3);
+    //         }
+    //     });
 
     function injectCss() {
         let css = document.createElement('style');
