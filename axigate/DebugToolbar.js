@@ -1,269 +1,105 @@
 (function () {
+    let dbtb = Window.dbtb = Window.dbtb || {};
 
-    class PlaceStorage {
-        static get key() {
-            return window.location.hostname + 'keptPlaces';
+    dbtb.Importer = (function () {
+        let host = (/(.+)DebugToolbar.js/i).exec(document.querySelector('script[src$="DebugToolbar.js"]').src)[1];
+        let callbacks = {};
+        let pendings = 0;
+        this.onEverythingImported = () => {
+        };
+
+        function isPresent(filename) {
+            return document.querySelector(`script[src$="${filename}"]`) && true;
         }
 
-        static getStoredPlaces() {
-            let storedJson = localStorage.getItem(PlaceStorage.key);
-            return storedJson ? JSON.parse(storedJson) : [];
-        }
+        this.import = function (filename, callback) {
+            pendings++;
+            callbacks[filename] = () => {
+                if (callback) {
+                    callback();
+                }
+                if (--pendings === 0) {
+                    onEverythingImported()
+                }
+                console.log(pendings, pendings === 0);
 
-        static storePlace(place) {
-            let storedPlaces = PlaceStorage.getStoredPlaces();
-            storedPlaces.push(place);
-            localStorage.setItem(PlaceStorage.key, JSON.stringify(storedPlaces));
-        }
+            };
 
-        static clearPlaceStorage() {
-            localStorage.setItem(PlaceStorage.key, null);
-        }
+            if (isPresent(filename)) {
+                //put to end of browser event loop
+                setTimeout(() => importReady(filename));
+            } else {
+                let jsCode = document.createElement('script');
+                jsCode.src = host + filename;
+                jsCode.type = 'text/javascript';
+                document.head.appendChild(jsCode);
+            }
+        };
 
-        static renamePlace(place, newName) {
-            let storedPlaces = PlaceStorage.getStoredPlaces();
-            storedPlaces.filter(p => place.name === p.name && p.displayName === place.displayName)[0].displayName = newName;
-            place.displayName = newName;
-            localStorage.setItem(PlaceStorage.key, JSON.stringify(storedPlaces));
-        }
+        this.importReady = function (filename) {
+            if (callbacks[filename]) {
+                callbacks[filename]();
+                callbacks[filename] = null;
+            }
+        };
 
-        static remove(place) {
-            let storedPlaces = PlaceStorage.getStoredPlaces();
-            let keptPlaces = storedPlaces.filter(p => place.name !== p.name && p.displayName !== place.displayName);
-            localStorage.setItem(PlaceStorage.key, JSON.stringify(keptPlaces));
-        }
-    }
 
-    class Place {
-        constructor(name, ...params) {
-            this.name = name;
-            this.parameters = params;
-            this.displayName = name;
-        }
-    }
+        return this;
+    })();
 
-    class InputTools {
-        static makePanel() {
-            let checkAll, fillAll, selectAll;
 
-            let panel = makeElement('div', {class: "toolBox"}, [
-                    makeElement('input', {
-                        id: 'showHideTools',
-                        type: 'checkbox',
-                        onchange: "document.getElementById('advancedToolBar').style.display = this.checked ? '' : 'none';"
-                    })
-                    , makeElement('label', {for: 'showHideTools'}, 'Show tools')
-                    , makeElement('div', {id: 'advancedToolBar', class: 'oneLine', style: 'display: none'}, [
-                        checkAll = makeElement('div', {
-                            class: 'control',
-                            title: 'Checks all radio button and checkboxes on the page'
-                        }, 'Check all')
-                        , makeElement('input', {type: 'text', id: 'fillingText', placeholder: 'Filling text here'})
-                        , fillAll = makeElement('div', {
-                            class: 'control',
-                            title: 'Fill all text inputs with the specified filling text'
-                        }, 'Fill all')
-                        , makeElement('input', {type: 'number', id: 'dropdownIdx', placeholder: 'Dropdown index'})
-                        , selectAll = makeElement('div', {
-                            class: 'control',
-                            title: 'Selects specified index on all dropdown list'
-                        }, 'Select all')
-                    ])
-                ]
-            );
+    dbtb.Importer.import('debugtoolbar/MainPanel.js');
 
-            checkAll.addEventListener('click', () => {
-                Array.from(document.querySelectorAll("input[type='checkbox']")).filter(x => 'showHideTools' !== x.id).forEach(x => x.click());
-                Array.from(document.querySelectorAll("input[type='radio']")).forEach(x => x.click());
-            });
+    dbtb.Importer.onEverythingImported = () => {
 
-            fillAll.addEventListener('click', () => {
-                let someText = document.getElementById('fillingText').value;
-                Array.from(document.querySelectorAll("textarea")).forEach(x => x.value = someText);
-                Array.from(document.querySelectorAll("input[type='text']")).forEach(x => x.value = someText);
-            });
+        const mainPanel = injectAndGetMainPanel();
+        injectCss();
+        ensureToolBarAlwaysUsable();
 
-            selectAll.addEventListener('click', () => {
-                let idx = document.getElementById('dropdownIdx').value || 1;
-                Array.from(document.querySelectorAll("select")).forEach(x => {
-                    x.selectedIndex = Math.min(idx, x.length)
-                });
-            });
 
+        function injectAndGetMainPanel() {
+            let panel = new dbtb.MainPanel;
+            document.body.appendChild(panel);
             return panel;
         }
-    }
-
-    class PlaceController {
-        static getCurrentPlace() {
-            let [, placeName, strParams] = (/#(\w+):((&?\w+=\w+)*)/gi).exec(window.location.hash);
-            let params = [];
-            let paramsRegExp = /(\w+)=(\w+)/gi;
-            for (let p; p = paramsRegExp.exec(strParams);) {
-                params.push(new Parameter(p[1], p[2]));
-            }
-
-            return new Place(placeName, ...params);
-        }
-
-        static goTo(place) {
-            jsApi.PlaceControllerApi.goTo(place.name, place.parameters);
-        }
-    }
-
-    class MainPanelClass extends HTMLElement {
-
-        constructor() {
-            super();
-        }
-
-        //noinspection JSUnusedGlobalSymbols
-        createdCallback() {
-            let controlsAndShortcuts = makeControlsAndShortcuts();
-            this.classList.add('ShortCutDoNotCommit');
-            this.appendChild(controlsAndShortcuts);
-            this.appendChild(InputTools.makePanel());
-
-            function makeButton(text, title) {
-                let reload = document.createElement('div');
-                reload.title = title;
-                reload.innerText = text;
-                return reload;
-            }
-
-            function makeLightReloadButton() {
-                let reload = makeButton('reload', 'Makes a place change to an empty place then goes back to the current place and arguments');
-                reload.classList.add("control");
-                reload.addEventListener('click', () => {
-                    let currentPlace = PlaceController.getCurrentPlace();
-                    setTimeout(() => PlaceController.goTo(currentPlace), 500);
-                    PlaceController.goTo(new Place('laboSophie'));
-                });
-
-                return reload;
-            }
-
-            function makeControlsAndShortcuts() {
-                let panel = document.createElement('div');
-                panel.classList.add('oneLine');
-                panel.appendChild(makeLightReloadButton());
-                panel.appendChild(makeKeepHereButton());
-                PlaceStorage.getStoredPlaces().forEach(place => panel.appendChild(makeGoToButton(place)));
-                return panel;
-            }
-
-            function makeGoToButton(place) {
-                let b = makeButton(place.displayName, 'ctrl+shift+click : delete\nright-click : edit name'); //alt+click : current place with stored place params\nshift+click : goto stored place with current params\n
-                b.classList.add('shortcut');
-                b.addEventListener('click', e => {
-                    if (e.ctrlKey && e.shiftKey) {
-                        PlaceStorage.remove(place);
-                        b.remove();
-                    } else {
-                        PlaceController.goTo(place);
-                    }
-
-                });
-                b.addEventListener('contextmenu', e => {
-                    e.preventDefault();
-                    b.innerText = window.prompt("New name : ");
-                    PlaceStorage.renamePlace(place, b.innerText);
-                });
-
-                return b;
-            }
-
-            function makeKeepHereButton() {
-                let keepHere = makeButton('Keep here', 'Add a new shortcut button to current place and arguments');
-                keepHere.classList.add("control");
-                keepHere.addEventListener('click', e => {
-                    if (e.ctrlKey && e.shiftKey) {
-                        PlaceStorage.clearPlaceStorage();
-                        return;
-                    }
-                    let currentPlace = PlaceController.getCurrentPlace();
-                    controlsAndShortcuts.appendChild(makeGoToButton(currentPlace));
-                    PlaceStorage.storePlace(currentPlace);
-                });
-
-                return keepHere;
-            }
 
 
-        }
-    }
-
-    const MainPanel = document.registerElement("main-panel", MainPanelClass);
-
-    const Parameter = jsApi.PlaceControllerApi.Parameter;
-    const mainPanel = injectAndGetMainPanel();
-    injectCss();
-    ensureToolBarAlwaysUsable();
-
-
-    function injectAndGetMainPanel() {
-        let panel = new MainPanel;
-        document.body.appendChild(panel);
-        return panel;
-    }
-
-
-
-    function makeElement(tag, props = {}, children = []) {
-        let elem = document.createElement(tag);
-        for (const p in props) {
-            elem.setAttribute(p, props[p]);
-        }
-
-        if (!(children instanceof Array)) {
-            children = [children];
-        }
-        for (const child of children) {
-            if (typeof child === 'string' || child instanceof String) {
-                elem.appendChild(document.createTextNode(child));
-            } else {
-                elem.appendChild(child);
-            }
-        }
-        return elem;
-    }
-
-    function ensureToolBarAlwaysUsable() {
-        new MutationObserver((mutations) => {
-            function isNodeADialog(node) {
-                return 0 !== Array.from(node.classList).filter(c => c.match(/^(gwt-PopupPanel|.+axDialogBox)$/)).length;
-            }
-
-            mutations.forEach((mutation) => {
-                if (0 !== Array.from(mutation.removedNodes).filter(node => isNodeADialog(node)).length) {
-                    mainPanel.remove();
-                    document.body.appendChild(mainPanel);
+        function ensureToolBarAlwaysUsable() {
+            new MutationObserver((mutations) => {
+                function isNodeADialog(node) {
+                    return 0 !== Array.from(node.classList).filter(c => c.match(/^(gwt-PopupPanel|.+axDialogBox)$/)).length;
                 }
-                Array.from(mutation.addedNodes).filter(node => isNodeADialog(node)).forEach(dialog => {
-                    mainPanel.remove();
-                    dialog.appendChild(mainPanel);
+
+                mutations.forEach((mutation) => {
+                    if (0 !== Array.from(mutation.removedNodes).filter(node => isNodeADialog(node)).length) {
+                        mainPanel.remove();
+                        document.body.appendChild(mainPanel);
+                    }
+                    Array.from(mutation.addedNodes).filter(node => isNodeADialog(node)).forEach(dialog => {
+                        mainPanel.remove();
+                        dialog.appendChild(mainPanel);
+                    });
                 });
-            });
-        }).observe(document.body, {childList: true});
-    }
+            }).observe(document.body, {childList: true});
+        }
 
-    // jsApi.NativeSqlApi.execute('SELECT PID_ID, PID_FIRSTNAME, PID_BIRTHNAME  FROM AXI_ID_MOVEMENT.T_PATIENTS_IDENTITIES_PID WHERE PID_ID < 1000'
-    //     , function(results, error){
-    //         if(null != error){
-    //             console.log(error);
-    //             return;
-    //         }
-    //
-    //         for(var i = 0; i < results.length; ++i){
-    //             var result = results[i];
-    //             console.log('id : '+ result.col1 +', name : '+ result.col3);
-    //         }
-    //     });
+        // jsApi.NativeSqlApi.execute('SELECT PID_ID, PID_FIRSTNAME, PID_BIRTHNAME  FROM AXI_ID_MOVEMENT.T_PATIENTS_IDENTITIES_PID WHERE PID_ID < 1000'
+        //     , function(results, error){
+        //         if(null != error){
+        //             console.log(error);
+        //             return;
+        //         }
+        //
+        //         for(var i = 0; i < results.length; ++i){
+        //             var result = results[i];
+        //             console.log('id : '+ result.col1 +', name : '+ result.col3);
+        //         }
+        //     });
 
-    function injectCss() {
-        let css = document.createElement('style');
-        css.appendChild(document.createTextNode(
-            `.ShortCutDoNotCommit {
+        function injectCss() {
+            let css = document.createElement('style');
+            css.appendChild(document.createTextNode(
+                `.ShortCutDoNotCommit {
                 position: fixed; top: 0px; left: 20px; opacity: 0.2; height: 18px; overflow:hidden; z-index: 9999999;
             }
             .ShortCutDoNotCommit:hover{
@@ -311,7 +147,9 @@
                 pointer-events: none
             }
 `
-        ));
-        document.documentElement.insertBefore(css, null);
-    }
+            ));
+            document.documentElement.insertBefore(css, null);
+        }
+
+    };
 })();
