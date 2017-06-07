@@ -1,7 +1,22 @@
 (function () {
     let dbtb = Window.dbtb = Window.dbtb || {};
 
-    const Parameter = jsApi.PlaceControllerApi.Parameter;
+
+    class Parameter {
+        constructor(options) {
+            if (options.apiParameter) {
+                this.code = options.apiParameter.g.code_0;
+                this.value = options.apiParameter.g.value_0;
+            } else {
+                this.code = options.code;
+                this.value = options.value;
+            }
+        }
+
+        toApiParameter() {
+            return new jsApi.PlaceControllerApi.Parameter(this.code, this.value);
+        }
+    }
 
 
     class Place {
@@ -17,14 +32,14 @@
             let params = [];
             let paramsRegExp = /(\w+)=(\w+)/gi;
             for (let p; p = paramsRegExp.exec(strParams);) {
-                params.push(new Parameter(p[1], p[2]));
+                params.push(new Parameter({code: p[1], value: p[2]}));
             }
 
             return new Place(placeName, ...params);
         }
 
         static goTo(place) {
-            jsApi.PlaceControllerApi.goTo(place.name, place.parameters);
+            jsApi.PlaceControllerApi.goTo(place.name, place.parameters.map(x => new Parameter(x).toApiParameter()));
         }
     };
 
