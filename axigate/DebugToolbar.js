@@ -5,46 +5,46 @@
         let host = (/(.+)DebugToolbar.js/i).exec(document.querySelector('script[src$="DebugToolbar.js"]').src)[1];
         let callbacks = {};
         let pendings = 0;
-        this.onEverythingImported = () => {
-        };
 
         function isPresent(filename) {
             return document.querySelector(`script[src$="${filename}"]`) && true;
         }
 
-        this.import = function (filename, callback) {
-            pendings++;
-            callbacks[filename] = () => {
-                if (callback) {
-                    callback();
-                }
-                if (--pendings === 0) {
-                    onEverythingImported()
-                }
-                console.log(pendings, pendings === 0);
-
-            };
-
-            if (isPresent(filename)) {
-                //put to end of browser event loop
-                setTimeout(() => importReady(filename));
-            } else {
-                let jsCode = document.createElement('script');
-                jsCode.src = host + filename;
-                jsCode.type = 'text/javascript';
-                document.head.appendChild(jsCode);
+        return {
+            onEverythingImported: () => {
             }
-        };
 
-        this.importReady = function (filename) {
-            if (callbacks[filename]) {
-                callbacks[filename]();
-                callbacks[filename] = null;
+            , importReady: function (filename) {
+                if (callbacks[filename]) {
+                    callbacks[filename]();
+                    callbacks[filename] = null;
+                }
             }
+            , import: function (filename, callback) {
+                pendings++;
+                callbacks[filename] = () => {
+                    if (callback) {
+                        callback();
+                    }
+                    if (--pendings === 0) {
+                        this.onEverythingImported()
+                    }
+                    console.log(pendings, pendings === 0);
+
+                };
+
+                if (isPresent(filename)) {
+                    //put to end of browser event loop
+                    setTimeout(() => importReady(filename));
+                } else {
+                    let jsCode = document.createElement('script');
+                    jsCode.src = host + filename;
+                    jsCode.type = 'text/javascript';
+                    document.head.appendChild(jsCode);
+                }
+            }
+
         };
-
-
-        return this;
     })();
 
 
