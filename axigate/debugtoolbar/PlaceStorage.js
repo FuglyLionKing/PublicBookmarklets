@@ -1,4 +1,6 @@
 (function () {
+    "use strict";
+
     let dbtb = Window.dbtb = Window.dbtb || {};
 
     dbtb.PlaceStorage = class PlaceStorage {
