@@ -19,8 +19,9 @@
             , importReady: function (filename) {
                 if (callbacks[filename]) {
                     callbacks[filename]();
-                    callbacks[filename] = null;
+                    delete callbacks[filename];
                 }
+                console.log("Pendings : ", pendings, Object.keys(callbacks));
             }
             , import: function (filename, callback) {
                 pendings++;
@@ -31,13 +32,11 @@
                     if (--pendings === 0) {
                         this.onEverythingImported()
                     }
-                    console.log(pendings, pendings === 0);
-
                 };
 
                 if (isPresent(filename)) {
                     //put to end of browser event loop
-                    setTimeout(() => importReady(filename));
+                    setTimeout(() => this.importReady(filename));
                 } else {
                     let jsCode = document.createElement('script');
                     jsCode.src = host + filename;
@@ -53,7 +52,7 @@
     dbtb.Importer.import('debugtoolbar/MainPanel.js');
 
     dbtb.Importer.onEverythingImported = () => {
-
+        console.log("Everything ready");
         const mainPanel = injectAndGetMainPanel();
         injectCss();
         ensureToolBarAlwaysUsable();
@@ -102,7 +101,7 @@
             let css = document.createElement('style');
             css.appendChild(document.createTextNode(
                 `.ShortCutDoNotCommit {
-                position: fixed; top: 0px; left: 20px; opacity: 0.2; height: 18px; overflow:hidden; z-index: 9999999;
+                position: fixed; top: 0px; left: 20px; opacity: 0.2; height: 18px; overflow:hidden; z-index: 9000000;
             }
             .ShortCutDoNotCommit:hover{
                 height: 80px; opacity: 1;

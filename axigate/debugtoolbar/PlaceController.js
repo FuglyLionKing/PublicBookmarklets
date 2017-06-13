@@ -21,13 +21,13 @@
     }
 
 
-    class Place {
-        constructor(name, ...params) {
+    dbtb.Place = class Place {
+        constructor(name, params = []) {
             this.name = name;
             this.parameters = params;
             this.displayName = name;
         }
-    }
+    };
     dbtb.PlaceController = class PlaceController {
         static getCurrentPlace() {
             let [, placeName, strParams] = (/#(\w+):((&?\w+=\w+)*)/gi).exec(window.location.hash);
@@ -37,12 +37,21 @@
                 params.push(new Parameter({code: p[1], value: p[2]}));
             }
 
-            return new Place(placeName, ...params);
+            return new Place(placeName, params);
         }
 
         static goTo(place) {
             jsApi.PlaceControllerApi.goTo(place.name, place.parameters.map(x => new Parameter(x).toApiParameter()));
         }
+
+        static goToWithCurrentPatientContext(place) {
+            let patCtxParamNames = ['patientId', 'stayId', 'unitStayId'];
+            let isAPatCtxParam = p => 0 <= patCtxParamNames.indexOf(p.code);
+            let keptParams = dbtb.PlaceController.getCurrentPlace().parameters.filter(isAPatCtxParam);
+
+            dbtb.PlaceController.goTo(new Place(place.name, place.parameters.filter(x => !isAPatCtxParam(x)).concat(keptParams)));
+        }
+
     };
 
 
