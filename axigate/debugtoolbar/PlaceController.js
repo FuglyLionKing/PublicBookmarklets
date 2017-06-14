@@ -37,7 +37,7 @@
                 params.push(new Parameter({code: p[1], value: p[2]}));
             }
 
-            return new Place(placeName, params);
+            return new dbtb.Place(placeName, params);
         }
 
         static goTo(place) {
@@ -49,7 +49,7 @@
             let isAPatCtxParam = p => 0 <= patCtxParamNames.indexOf(p.code);
             let keptParams = dbtb.PlaceController.getCurrentPlace().parameters.filter(isAPatCtxParam);
 
-            dbtb.PlaceController.goTo(new Place(place.name, place.parameters.filter(x => !isAPatCtxParam(x)).concat(keptParams)));
+            dbtb.PlaceController.goTo(new dbtb.Place(place.name, place.parameters.filter(x => !isAPatCtxParam(x)).concat(keptParams)));
         }
 
     };
